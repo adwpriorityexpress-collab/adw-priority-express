@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireCustomer } from "../../../lib/requireCustomer";
+import { requireCustomer } from @/lib/requireCustomer
 
 function s(v: FormDataEntryValue | null) {
   return String(v ?? "").trim();
