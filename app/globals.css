@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-brand-black text-brand-text antialiased;
+}
+
+/* Soft Base44-style glow background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(900px 520px at 18% 10%, rgba(186, 27, 27, 0.20), transparent 55%),
+    radial-gradient(700px 480px at 85% 22%, rgba(186, 27, 27, 0.10), transparent 60%),
+    radial-gradient(900px 720px at 50% 110%, rgba(255, 255, 255, 0.06), transparent 62%),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.82));
+  z-index: 0;
+}
+
+.app-shell {
+  position: relative;
+  z-index: 1;
+  @apply min-h-screen;
+}
+
+.container {
+  @apply mx-auto w-full max-w-6xl px-5;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-brand-border bg-brand-surface shadow-card;
+  }
+
+  .card-soft {
+    @apply rounded-2xl border border-brand-border bg-brand-surface2 shadow-soft;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-extrabold transition;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-red text-white hover:opacity-90 active:opacity-80;
+  }
+
+  .btn-secondary {
+    @apply btn border border-brand-border bg-brand-surface2 text-brand-text hover:bg-brand-surface;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-brand-text hover:bg-brand-surface2;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-brand-border bg-brand-surface2 px-3 py-2 text-brand-text placeholder:text-brand-muted outline-none;
+  }
+
+  .input:focus {
+    box-shadow: 0 0 0 3px rgba(186, 27, 27, 0.22);
+    border-color: rgba(186, 27, 27, 0.7);
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full border border-brand-border bg-brand-surface2 px-2 py-1 text-xs text-brand-muted;
+  }
+}
