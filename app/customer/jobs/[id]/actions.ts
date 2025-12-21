@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireCustomer } from "@/app/lib/requireCustomer";
+import { requireCustomer } from "@/lib/requireCustomer";
 
 export async function acceptBidAction(formData: FormData) {
   const jobId = String(formData.get("jobId") || "").trim();

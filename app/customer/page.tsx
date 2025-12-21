@@ -1,7 +1,7 @@
 import Link from "next/link";
 import BackButton from "@/app/components/BackButton";
 import SignOutButton from "@/app/components/SignOutButton";
-import { requireCustomer } from "@/app/lib/requireCustomer";
+import { requireCustomer } from "@/lib/requireCustomer";
 import { createJobAction } from "./actions";
 
 type SearchParams = { created?: string; err?: string };

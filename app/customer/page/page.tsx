@@ -1,4 +1,4 @@
-import { requireCustomer } from "@/app/lib/requireCustomer";
+import { requireCustomer } from "@/lib/requireCustomer";
 import { createJobAction } from "./actions";
 
 type SearchParams = { created?: string; err?: string };

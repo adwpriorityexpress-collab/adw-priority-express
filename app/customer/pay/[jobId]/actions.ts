@@ -1,8 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { stripe } from "@/app/lib/stripe";
-import { requireCustomer } from "@/app/lib/requireCustomer";
+import { stripe } from "@/lib/stripe";
+import { requireCustomer } from "@/lib/requireCustomer";
+
 
 function toPence(amountGbp: number) {
   return Math.round(amountGbp * 100);

@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { requireDriver } from "@/app/lib/requireDriver";
+import { requireDriver } from "@/lib/requireDriver";
 
 function enc(msg: string) {
   return encodeURIComponent(msg);

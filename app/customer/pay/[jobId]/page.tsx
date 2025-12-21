@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { requireCustomer } from "@/app/lib/requireCustomer";
+import { requireCustomer } from "@/lib/requireCustomer";
+
+
 
 export default async function CustomerPayJobPage(props: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await props.params;

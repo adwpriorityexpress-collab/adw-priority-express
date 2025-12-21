@@ -1,7 +1,7 @@
 import Link from "next/link";
 import BackButton from "@/app/components/BackButton";
 import SignOutButton from "@/app/components/SignOutButton";
-import { requireDriver } from "@/app/lib/requireDriver";
+import { requireDriver } from "@/lib/requireDriver";
 import { startJobAction, deliveredJobAction } from "./actions";
 
 type Job = {

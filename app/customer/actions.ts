@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createServerSupabase } from "@/app/lib/supabase/server";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 function requiredStr(value: FormDataEntryValue | null, field: string) {
   const v = (value ?? "").toString().trim();

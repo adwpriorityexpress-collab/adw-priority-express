@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabase } from "@/app/lib/supabase/server";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 function toMoney(value: FormDataEntryValue | null) {
   if (value === null) return null;

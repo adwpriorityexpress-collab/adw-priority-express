@@ -1,17 +1,19 @@
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-// Client-side Supabase instance (browser).
-// Only import this inside Client Components ("use client") or browser-only code.
+export async function createServerSupabase() {
+  const cookieStore = cookies();
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl) {
-  throw new Error("Missing env: NEXT_PUBLIC_SUPABASE_URL");
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+      },
+    }
+  );
 }
 
-if (!supabaseAnonKey) {
-  throw new Error("Missing env: NEXT_PUBLIC_SUPABASE_ANON_KEY");
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);

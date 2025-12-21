@@ -1,6 +1,7 @@
 import Link from "next/link";
 import BackButton from "@/app/components/BackButton";
-import { requireCustomer } from "@/app/lib/requireCustomer";
+import { requireCustomer } from "@/lib/requireCustomer";
+
 import { acceptBidAction } from "./actions";
 
 type Bid = {

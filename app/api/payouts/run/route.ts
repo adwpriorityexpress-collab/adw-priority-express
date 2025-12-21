@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/app/lib/stripe";
-import { supabaseAdmin } from "@/app/lib/supabaseAdmin";
+import { stripe } from "@/lib/stripe";
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
 
