@@ -22,11 +22,14 @@ function BrandMark() {
   );
 }
 
-export default async function LoginPage(props: {
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
-}) {
+type SP = { [key: string]: string | string[] | undefined };
+
+export default async function LoginPage(props: { searchParams?: Promise<SP> }) {
   const sp = props.searchParams ? await props.searchParams : {};
   const check = typeof sp.check === "string" ? sp.check : undefined;
+
+  // ✅ Capture next from query string (e.g. /login?next=/customer)
+  const nextParam = typeof sp.next === "string" ? sp.next : undefined;
 
   return (
     <div className="min-h-screen bg-[#070b12] text-white">
@@ -61,7 +64,8 @@ export default async function LoginPage(props: {
               </p>
 
               <div className="mt-6">
-                <LoginForm />
+                {/* ✅ Pass next through so the form can redirect correctly */}
+                <LoginForm nextParam={nextParam} />
               </div>
 
               <div className="mt-6 flex items-center justify-between text-xs text-white/55">
@@ -77,7 +81,7 @@ export default async function LoginPage(props: {
           <div className="lg:col-span-6">
             <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-7">
               <div className="text-xs font-semibold uppercase tracking-wide text-white/60">
-                Trust & Clarity
+                Trust &amp; Clarity
               </div>
               <h2 className="mt-2 text-xl font-semibold text-white">
                 A professional courier marketplace — built for confidence

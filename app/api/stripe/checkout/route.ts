@@ -1,77 +1,72 @@
+import Stripe from "stripe";
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
-import { requireCustomer } from "@/lib/requireCustomer";
+import { createClient } from "@supabase/supabase-js";
 
-function toPence(amountGbp: number) {
-  return Math.round(amountGbp * 100);
-}
+export const runtime = "nodejs"; // Stripe needs Node runtime
 
-export const runtime = "nodejs";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2024-06-20",
+});
 
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const jobId = url.searchParams.get("jobId");
-
-  if (!jobId) {
-    return NextResponse.json({ error: "Missing jobId" }, { status: 400 });
+export async function POST(req: Request) {
+  const sig = req.headers.get("stripe-signature");
+  if (!sig) {
+    return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });
   }
 
-  const { supabase, userId } = await requireCustomer();
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const body = await req.text();
 
-  const { data: job, error } = await supabase
-    .from("jobs")
-    .select("id, customer_id, status, payment_status, winning_bid_amount_gbp, pickup_postcode, dropoff_postcode")
-    .eq("id", jobId)
-    .single();
-
-  if (error || !job) {
-    return NextResponse.json({ error: `Job not found: ${error?.message || "unknown"}` }, { status: 404 });
+  let event: Stripe.Event;
+  try {
+    event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: `Webhook signature verification failed: ${err.message}` },
+      { status: 400 }
+    );
   }
 
-  if (job.customer_id !== userId) {
-    return NextResponse.json({ error: "Not your job" }, { status: 403 });
+  // Use SERVICE ROLE so webhook can update rows regardless of RLS
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } }
+  );
+
+  try {
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded"
+    ) {
+      const session = event.data.object as Stripe.Checkout.Session;
+
+      // We rely on metadata.job_id set when creating Checkout Session
+      const jobId = session.metadata?.job_id;
+      if (!jobId) throw new Error("Missing metadata.job_id on checkout session");
+
+      // PaymentIntent is available for payment mode
+      const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : "";
+
+      // Atomic DB update (idempotent if your SQL function is written that way)
+      const { error } = await supabase.rpc("mark_job_paid_from_stripe", {
+        p_job_id: jobId,
+        p_stripe_session_id: session.id,
+        p_payment_intent_id: paymentIntentId,
+      });
+
+      if (error) throw error;
+    } else {
+      // Optional: useful during dev
+      // console.log("Unhandled event type:", event.type);
+    }
+
+    // Always 200 if processed successfully
+    return NextResponse.json({ received: true });
+  } catch (err: any) {
+    // Stripe will retry on non-2xx
+    return NextResponse.json(
+      { error: err?.message ?? "Webhook handler error" },
+      { status: 500 }
+    );
   }
-
-  if (!["assigned", "in_transit", "delivered"].includes(job.status)) {
-    return NextResponse.json({ error: "Job must be assigned before payment" }, { status: 400 });
-  }
-
-  if (job.payment_status === "paid") {
-    return NextResponse.redirect(`${appUrl}/customer/jobs/${jobId}?paid=1`);
-  }
-
-  const amount = Number(job.winning_bid_amount_gbp || 0);
-  if (!amount || amount <= 0) {
-    return NextResponse.json({ error: "winning_bid_amount_gbp not set on job" }, { status: 400 });
-  }
-
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    success_url: `${appUrl}/customer/jobs/${jobId}?paid=1`,
-    cancel_url: `${appUrl}/customer/pay/${jobId}?pay=cancel`,
-    line_items: [
-      {
-        quantity: 1,
-        price_data: {
-          currency: "gbp",
-          unit_amount: toPence(amount),
-          product_data: {
-            name: "Courier Job Payment",
-            description: `Job ${jobId} • ${job.pickup_postcode ?? ""} → ${job.dropoff_postcode ?? ""}`.trim(),
-          },
-        },
-      },
-    ],
-    metadata: {
-      job_id: jobId,
-      customer_id: userId,
-    },
-  });
-
-  if (!session.url) {
-    return NextResponse.json({ error: "Stripe session missing url" }, { status: 500 });
-  }
-
-  return NextResponse.redirect(session.url);
 }

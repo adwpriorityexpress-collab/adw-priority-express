@@ -1,176 +1,121 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createBrowserClient } from "@supabase/ssr";
 
+type Props = {
+  nextParam?: string;
+};
 
+function sanitizeNext(raw?: string | null) {
+  const s = (raw || "").trim();
 
-function cx(...classes: Array<string | false | undefined | null>) {
-  return classes.filter(Boolean).join(" ");
+  // ✅ Default: send to dashboard router
+  if (!s) return "/app";
+
+  // ✅ Must be a relative internal path (prevents host switching to localhost/127/etc)
+  if (!s.startsWith("/")) return "/app";
+  if (s.startsWith("//")) return "/app";
+  if (s.toLowerCase().startsWith("/\\") || s.toLowerCase().includes("http")) return "/app";
+
+  // Prevent redirecting back to auth pages
+  if (s.startsWith("/login") || s.startsWith("/signup")) return "/app";
+
+  return s;
 }
 
-function isEmail(v: string) {
-  const s = v.trim();
-  return s.includes("@") && s.includes(".");
-}
-
-export default function LoginForm() {
+export default function LoginForm({ nextParam }: Props) {
   const router = useRouter();
+  const sp = useSearchParams();
+
+  const resolvedNext = useMemo(() => {
+    const fromQuery = sp?.get("next");
+    return sanitizeNext(nextParam ?? fromQuery);
+  }, [nextParam, sp]);
+
+  const supabase = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    return createBrowserClient(url, anon);
+  }, []);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(true);
-
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  const canSubmit = useMemo(() => {
-    return isEmail(email) && password.trim().length >= 6 && !submitting;
-  }, [email, password, submitting]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string>("");
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setErrorMsg(null);
-
-    if (!isEmail(email)) {
-      setErrorMsg("Please enter a valid email address.");
-      return;
-    }
-    if (password.trim().length < 6) {
-      setErrorMsg("Password must be at least 6 characters.");
-      return;
-    }
-
-    setSubmitting(true);
+    setMsg("");
+    setLoading(true);
 
     try {
-      // Sign in
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
-        password: password,
+        password,
       });
 
       if (error) {
-        setErrorMsg(error.message || "Login failed. Please try again.");
-        setSubmitting(false);
+        setMsg(error.message);
+        setLoading(false);
         return;
       }
 
-      if (!data.user) {
-        setErrorMsg("Login failed. Please try again.");
-        setSubmitting(false);
-        return;
-      }
-
-      // OPTIONAL: remember me control (simple + explicit)
-      // Supabase persists session by default in browser storage.
-      // If user unticks remember, we sign out when tab closes isn't trivial without custom storage.
-      // For now, we keep it UI-only but you can wire a custom storage later.
-      // (We keep explicit behaviour and avoid hidden magic.)
-
-      // Fetch profile to route correctly
-      const { data: profile, error: profileErr } = await supabase
-        .from("profiles")
-        .select("role, approved")
-        .eq("id", data.user.id)
-        .single();
-
-      if (profileErr || !profile) {
-        // If something is wrong with profiles row, send to customer by default
-        router.push("/customer");
-        router.refresh();
-        return;
-      }
-
-      if (profile.role === "driver") {
-        if (!profile.approved) {
-          router.push("/driver/pending");
-        } else {
-          router.push("/driver/jobs");
-        }
-      } else {
-        router.push("/customer");
-      }
-
+      // ✅ Go to next (or /app by default), then refresh server components
+      router.replace(resolvedNext);
       router.refresh();
     } catch (err: any) {
-      setErrorMsg(err?.message || "Something went wrong. Please try again.");
+      setMsg(err?.message ?? "Login failed");
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      {errorMsg && (
+      {msg ? (
         <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-          {errorMsg}
+          {msg}
         </div>
-      )}
+      ) : null}
 
       <div className="space-y-2">
         <label className="text-xs font-semibold text-white/70">Email</label>
         <input
+          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/20"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@example.com"
-          autoComplete="email"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/20"
+          required
         />
       </div>
 
       <div className="space-y-2">
         <label className="text-xs font-semibold text-white/70">Password</label>
         <input
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
+          className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/20"
           type="password"
           autoComplete="current-password"
-          className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/20"
+          placeholder="••••••••"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
         />
-      </div>
-
-      <div className="flex items-center justify-between gap-3">
-        <label className="flex cursor-pointer items-center gap-2 text-xs text-white/65">
-          <input
-            type="checkbox"
-            checked={remember}
-            onChange={(e) => setRemember(e.target.checked)}
-            className="h-4 w-4 rounded border-white/20 bg-white/10"
-          />
-          Remember me
-        </label>
-
-        <button
-          type="button"
-          className="text-xs font-semibold text-white/65 hover:text-white"
-          onClick={() => setErrorMsg("Password reset can be added next (Supabase reset email).")}
-        >
-          Forgot password?
-        </button>
       </div>
 
       <button
         type="submit"
-        disabled={!canSubmit}
-        className={cx(
-          "w-full rounded-xl px-4 py-3 text-sm font-semibold",
-          canSubmit
-            ? "bg-white text-black hover:bg-white/90"
-            : "cursor-not-allowed bg-white/20 text-white/50"
-        )}
+        disabled={loading}
+        className="inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-black hover:bg-white/90 disabled:opacity-60"
       >
-        {submitting ? "Signing in…" : "Sign in"}
+        {loading ? "Signing in…" : "Sign in"}
       </button>
 
-      <div className="text-center text-xs text-white/55">
-        Don’t have an account?{" "}
-        <Link href="/signup" className="font-semibold text-white/80 hover:text-white">
-          Create one
-        </Link>
+      <div className="text-xs text-white/55">
+        Tip: if you were sent here from a protected page, we’ll take you back automatically after login.
       </div>
     </form>
   );

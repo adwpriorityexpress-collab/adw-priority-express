@@ -1,5 +1,14 @@
+// app/app/page.tsx
 import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
+
+type Role = "customer" | "driver" | "admin";
+
+function normalizeRole(v: any): Role | null {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (s === "customer" || s === "driver" || s === "admin") return s;
+  return null;
+}
 
 export default async function AppRouterPage() {
   const supabase = await createServerSupabase();
@@ -8,7 +17,8 @@ export default async function AppRouterPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  // Not logged in → go login, then come back to /app
+  if (!user) redirect("/login?next=/app");
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -16,16 +26,21 @@ export default async function AppRouterPage() {
     .eq("id", user.id)
     .single();
 
-  if (!profile) redirect("/login");
+  // No profile → treat as logged out (or onboarding broken)
+  if (!profile) redirect("/login?next=/app");
 
-  if (profile.role === "customer") {
-    redirect("/customer");
-  }
+  const role = normalizeRole(profile.role);
+  const approved = typeof profile.approved === "boolean" ? profile.approved : null;
 
-  if (profile.role === "driver") {
-    if (!profile.approved) redirect("/driver/pending");
+  if (role === "customer") redirect("/customer");
+
+  if (role === "driver") {
+    if (approved === false) redirect("/driver/pending");
     redirect("/driver/jobs");
   }
 
-  redirect("/login");
+  if (role === "admin") redirect("/admin");
+
+  // Unknown role → send to welcome page (safe)
+  redirect("/");
 }

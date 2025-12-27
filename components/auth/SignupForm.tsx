@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type Role = "customer" | "driver";
 
@@ -52,16 +52,12 @@ export default function SignupForm() {
 
     setResending(true);
     try {
-      const { error } = await supabase.auth.resend({
+      const { error } = await supabaseBrowser.auth.resend({
         type: "signup",
         email: email.trim(),
       });
 
-      if (error) {
-        setErrorMsg(error.message || "Could not resend confirmation email.");
-        setResending(false);
-        return;
-      }
+      if (error) throw error;
 
       setResentMsg("Confirmation email resent. Please check your inbox (and spam/junk).");
     } catch (err: any) {
@@ -94,25 +90,19 @@ export default function SignupForm() {
     setSubmitting(true);
 
     try {
-      // NOTE:
-      // We do NOT insert into public.profiles here because RLS blocks it.
-      // Profiles should be created by a Supabase DB trigger on auth.users insert.
-      const { data, error } = await supabase.auth.signUp({
+      // Profiles are created by your DB trigger on auth.users insert.
+      const { data, error } = await supabaseBrowser.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: {
             full_name: fullName.trim(),
-            role, // used by DB trigger: new.raw_user_meta_data->>'role'
+            role, // DB trigger reads raw_user_meta_data->>'role'
           },
         },
       });
 
-      if (error) {
-        setErrorMsg(error.message || "Sign up failed. Please try again.");
-        setSubmitting(false);
-        return;
-      }
+      if (error) throw error;
 
       const user = data.user;
       const session = data.session;
@@ -122,21 +112,18 @@ export default function SignupForm() {
         setNeedsEmailConfirm(true);
         setSuccessMsg("Account created. Please confirm your email address to continue.");
 
-        // Optional: send them to login page with banner
+        // Send them to login with a banner (optional)
         router.push("/login?check=email");
         router.refresh();
         return;
       }
 
-      // If session exists, they can go straight in
-      if (role === "driver") {
-        router.push("/driver/pending");
-      } else {
-        router.push("/customer");
-      }
+      // If session exists, we still route through /login so proxy.ts applies role/approval logic consistently.
+      // This avoids edge cases where the trigger/profile isn't immediately visible.
+      router.push("/login");
       router.refresh();
     } catch (err: any) {
-      setErrorMsg(err?.message || "Something went wrong. Please try again.");
+      setErrorMsg(err?.message || "Sign up failed. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -190,7 +177,7 @@ export default function SignupForm() {
           {resentMsg && <div className="mt-3 text-xs text-white/70">{resentMsg}</div>}
 
           <div className="mt-2 text-[11px] leading-5 text-white/45">
-            Tip: Check spam/junk folders. Some email providers delay messages by a few minutes.
+            Tip: Check spam/junk folders. Some providers delay messages by a few minutes.
           </div>
         </div>
       )}
@@ -295,4 +282,3 @@ export default function SignupForm() {
     </form>
   );
 }
-
